@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Asya Toker — Konu Trend Analizi</title>
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #181c27;
+  --surface2: #1f2535;
+  --border: #2a3045;
+  --red: #f04f59;
+  --orange: #f5a623;
+  --green: #3ecf8e;
+  --text: #e8eaf0;
+  --muted: #7a8399;
+  --accent: #7c6af7;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; overflow-x: hidden; }
+
+/* HEADER */
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 16px 10px;
+  position: sticky; top: 0; z-index: 100;
+}
+.header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.header-top h1 { font-size: 15px; font-weight: 700; }
+.header-top p { font-size: 11px; color: var(--muted); margin-top: 1px; }
+.tabs { display: flex; gap: 4px; background: var(--bg); border-radius: 8px; padding: 3px; border: 1px solid var(--border); }
+.tab { flex: 1; padding: 7px 0; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; background: transparent; color: var(--muted); transition: all .2s; text-align: center; }
+.tab.active { background: var(--accent); color: #fff; }
+
+/* PAGE */
+.page { display: none; }
+.page.visible { display: block; }
+
+/* FILTERS (Genel tab) */
+.filters {
+  padding: 12px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 73px; z-index: 90;
+}
+.search-box {
+  width: 100%; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 9px 12px; color: var(--text); font-size: 14px;
+  font-family: inherit; outline: none; margin-bottom: 10px;
+}
+.search-box:focus { border-color: var(--accent); }
+.search-box::placeholder { color: var(--muted); }
+.chip-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.chip {
+  padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  cursor: pointer; border: 1.5px solid; transition: all .15s; white-space: nowrap;
+  -webkit-tap-highlight-color: rgba(0,0,0,0);
+}
+.chip.all { border-color: var(--muted); color: var(--muted); }
+.chip.all.active { background: var(--muted); color: var(--bg); }
+.chip.azalan { border-color: var(--red); color: var(--red); }
+.chip.azalan.active { background: var(--red); color: #fff; }
+.chip.sabit { border-color: var(--orange); color: var(--orange); }
+.chip.sabit.active { background: var(--orange); color: #fff; }
+.subject-pills { display: flex; gap: 5px; flex-wrap: wrap; }
+.subject-pill {
+  padding: 4px 9px; border-radius: 4px; font-size: 11px; font-weight: 600;
+  cursor: pointer; border: 1px solid var(--border); color: var(--muted); transition: all .15s;
+}
+.subject-pill.active { color: var(--text); border-color: var(--accent); background: rgba(124,106,247,.15); }
+
+/* LIST COUNT */
+.list-count { padding: 8px 16px; font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--border); background: var(--bg); font-family: monospace; }
+
+/* LIST ITEMS */
+.item-list { padding-bottom: 20px; }
+.list-item {
+  padding: 13px 16px;
+  border-bottom: 1px solid rgba(42,48,69,.5);
+  cursor: pointer;
+  transition: background .1s;
+  active-background: var(--surface2);
+}
+.list-item:active { background: var(--surface2); }
+.item-ders { font-size: 10px; font-weight: 700; font-family: monospace; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+.item-kazanim { font-size: 13px; color: var(--text); line-height: 1.4; margin-bottom: 8px; }
+.item-meta { display: flex; align-items: center; gap: 8px; }
+.trend-badge { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; font-family: monospace; }
+.trend-badge.azalan { background: rgba(240,79,89,.15); color: var(--red); }
+.trend-badge.sabit { background: rgba(245,166,35,.15); color: var(--orange); }
+.item-change { font-size: 12px; font-family: monospace; font-weight: 600; }
+.item-change.neg { color: var(--red); }
+.item-change.zero { color: var(--orange); }
+.mini-sparks { display: flex; align-items: flex-end; gap: 2px; margin-left: auto; height: 22px; }
+.spark-bar { width: 6px; border-radius: 1px; }
+
+/* DETAIL PANEL (slide-up sheet on mobile) */
+.backdrop {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200;
+  backdrop-filter: blur(2px);
+}
+.backdrop.visible { display: block; }
+.detail-sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 201;
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  max-height: 88vh;
+  display: flex; flex-direction: column;
+  transform: translateY(100%);
+  transition: transform .3s cubic-bezier(.32,.72,0,1);
+  box-shadow: 0 -4px 40px rgba(0,0,0,0.5);
+}
+.detail-sheet.visible { transform: translateY(0); }
+.sheet-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 10px auto 0; flex-shrink: 0; }
+.sheet-head {
+  padding: 12px 18px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sheet-close {
+  float: right; background: var(--surface2); border: none; color: var(--muted);
+  width: 30px; height: 30px; border-radius: 15px; font-size: 16px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; margin-left: 8px; margin-top: -2px;
+  flex-shrink: 0;
+}
+.sheet-ders { font-size: 10px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px; font-family: monospace; }
+.sheet-title { font-size: 13px; font-weight: 700; line-height: 1.4; color: var(--text); }
+.stat-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.stat-pill {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 12px; text-align: center; flex: 1; min-width: 60px;
+}
+.stat-pill .val { font-size: 18px; font-weight: 700; font-family: monospace; }
+.stat-pill .lbl { font-size: 9px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: .5px; }
+.stat-pill.red .val { color: var(--red); }
+.stat-pill.orange .val { color: var(--orange); }
+.stat-pill.green .val { color: var(--green); }
+.sheet-legend {
+  display: flex; gap: 12px; padding: 8px 18px; border-bottom: 1px solid var(--border);
+  font-size: 11px; color: var(--muted); flex-shrink: 0;
+}
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+.sheet-body { overflow-y: auto; flex: 1; padding: 0 18px 24px; }
+.chart-wrap { height: 220px; margin: 16px 0; position: relative; }
+canvas { width: 100% !important; height: 100% !important; }
+
+/* EXAM TABLE in sheet */
+.exam-table { margin-top: 8px; }
+.exam-table h3 { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; font-family: monospace; }
+.exam-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid rgba(42,48,69,.4); }
+.exam-label { font-size: 12px; font-family: monospace; color: var(--muted); width: 38px; flex-shrink: 0; }
+.exam-bar-wrap { flex: 1; background: var(--bg); border-radius: 3px; height: 8px; overflow: hidden; }
+.exam-bar { height: 100%; border-radius: 3px; transition: width .3s; }
+.exam-pct { font-size: 12px; font-family: monospace; width: 36px; text-align: right; flex-shrink: 0; }
+.exam-wrong { font-size: 11px; color: var(--red); width: 28px; text-align: right; flex-shrink: 0; font-family: monospace; }
+
+/* MAT PAGE */
+.mat-head { padding: 14px 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.mat-head h2 { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+.mat-head p { font-size: 11px; color: var(--muted); }
+.sort-row { display: flex; gap: 6px; margin-top: 10px; }
+.sort-btn { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; cursor: pointer; border: 1.5px solid var(--border); background: transparent; color: var(--muted); transition: all .15s; }
+.sort-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.mat-list { padding: 12px 16px 40px; }
+.mat-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 14px; margin-bottom: 12px; border-left: 3px solid transparent;
+}
+.mat-card.critical { border-left-color: var(--red); }
+.mat-card.warning { border-left-color: var(--orange); }
+.mat-card-title { font-size: 13px; font-weight: 600; line-height: 1.4; margin-bottom: 10px; }
+.mat-chart-wrap { height: 80px; position: relative; margin-bottom: 8px; }
+.mat-footer { display: flex; align-items: center; justify-content: space-between; }
+.yanlis-trend { font-family: monospace; font-size: 11px; color: var(--muted); }
+.severity-tag { font-size: 10px; font-weight: 700; font-family: monospace; padding: 3px 8px; border-radius: 4px; }
+.severity-tag.kotu { background: rgba(240,79,89,.15); color: var(--red); }
+.severity-tag.degismiyor { background: rgba(245,166,35,.15); color: var(--orange); }
+.severity-tag.ok { background: rgba(62,207,142,.1); color: var(--green); }
+
+/* MINI CHART ENGINE */
+</style>
+
+<script>
+// ===== CANVAS CHART ENGINE (no external deps) =====
+function _rr(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y); ctx.lineTo(x+w-r, y);
+  ctx.quadraticCurveTo(x+w,y,x+w,y+r); ctx.lineTo(x+w,y+h-r);
+  ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h); ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r); ctx.lineTo(x,y+r);
+  ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
+}
+
+function drawLineChart(canvas, labels, pctData, wrongData) {
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth || 340;
+  const H = canvas.offsetHeight || 220;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const p = { t: 16, r: 44, b: 28, l: 38 };
+  const pw = W - p.l - p.r, ph = H - p.t - p.b;
+  const n = labels.length;
+  const gx = i => p.l + (n === 1 ? pw/2 : (i/(n-1))*pw);
+  const gy = (v, max) => p.t + ph - (v/max)*ph;
+  // Background
+  ctx.fillStyle = '#0f1117'; ctx.fillRect(0,0,W,H);
+  // Grid + left axis (%)
+  [0,25,50,75,100].forEach(v => {
+    const y = gy(v,100);
+    ctx.strokeStyle = 'rgba(42,48,69,.7)'; ctx.lineWidth = .5;
+    ctx.beginPath(); ctx.moveTo(p.l,y); ctx.lineTo(p.l+pw,y); ctx.stroke();
+    ctx.fillStyle = '#7c6af7'; ctx.font = '10px monospace'; ctx.textAlign = 'right';
+    ctx.fillText(v+'%', p.l-4, y+3.5);
+  });
+  // X labels
+  labels.forEach((lbl,i) => {
+    ctx.fillStyle = '#7a8399'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+    ctx.fillText(lbl, gx(i), H-6);
+  });
+  // Wrong axis (right)
+  const maxW = Math.max(...wrongData, 1);
+  [0, Math.ceil(maxW/2), maxW].forEach(v => {
+    const y = gy(v, maxW);
+    ctx.fillStyle = '#f04f59'; ctx.font = '10px monospace'; ctx.textAlign = 'left';
+    ctx.fillText(v, p.l+pw+4, y+3.5);
+  });
+  // PCT fill area
+  ctx.beginPath();
+  pctData.forEach((v,i) => i===0 ? ctx.moveTo(gx(i),gy(v,100)) : ctx.lineTo(gx(i),gy(v,100)));
+  ctx.lineTo(gx(n-1), p.t+ph); ctx.lineTo(gx(0), p.t+ph); ctx.closePath();
+  ctx.fillStyle = 'rgba(124,106,247,.12)'; ctx.fill();
+  // PCT line
+  ctx.beginPath(); ctx.strokeStyle = '#7c6af7'; ctx.lineWidth = 2.5; ctx.setLineDash([]);
+  pctData.forEach((v,i) => i===0 ? ctx.moveTo(gx(i),gy(v,100)) : ctx.lineTo(gx(i),gy(v,100)));
+  ctx.stroke();
+  // Wrong line (dashed)
+  ctx.beginPath(); ctx.strokeStyle = '#f04f59'; ctx.lineWidth = 1.8; ctx.setLineDash([5,3]);
+  wrongData.forEach((v,i) => i===0 ? ctx.moveTo(gx(i),gy(v,maxW)) : ctx.lineTo(gx(i),gy(v,maxW)));
+  ctx.stroke(); ctx.setLineDash([]);
+  // PCT points
+  pctData.forEach((v,i) => {
+    ctx.beginPath(); ctx.arc(gx(i),gy(v,100),6,0,Math.PI*2);
+    ctx.fillStyle = v===0?'#f04f59':v<50?'#f5a623':'#7c6af7';
+    ctx.fill(); ctx.strokeStyle='#0f1117'; ctx.lineWidth=2; ctx.stroke();
+  });
+  // Wrong points
+  wrongData.forEach((v,i) => {
+    ctx.beginPath(); ctx.arc(gx(i),gy(v,maxW),4,0,Math.PI*2);
+    ctx.fillStyle = v>0?'#f04f59':'#3ecf8e';
+    ctx.fill(); ctx.strokeStyle='#0f1117'; ctx.lineWidth=1.5; ctx.stroke();
+  });
+  // Touch/mouse tooltip
+  const tip = e => {
+    const rect = canvas.getBoundingClientRect();
+    const cx = (e.touches?e.touches[0].clientX:e.clientX) - rect.left;
+    const idx = Math.max(0, Math.min(n-1, Math.round((cx - p.l) / pw * (n-1))));
+    drawLineChart(canvas, labels, pctData, wrongData); // redraw clean
+    const x = gx(idx);
+    ctx.strokeStyle='rgba(255,255,255,.15)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(x,p.t); ctx.lineTo(x,p.t+ph); ctx.stroke();
+    // Tooltip
+    const lines = [labels[idx], `Doğru: %${pctData[idx].toFixed(0)}`, `Yanlış: ${wrongData[idx]}`];
+    const tw2 = 120, th2 = lines.length*16+14;
+    let tx = x+10, ty = p.t+4;
+    if (tx+tw2 > W-4) tx = x-tw2-10;
+    ctx.fillStyle='#1f2535'; ctx.strokeStyle='#2a3045'; ctx.lineWidth=1;
+    _rr(ctx,tx,ty,tw2,th2,6); ctx.fill(); ctx.stroke();
+    ctx.font='11px monospace'; ctx.textAlign='left';
+    lines.forEach((l,li) => {
+      ctx.fillStyle = li===0?'#7a8399':'#e8eaf0';
+      ctx.fillText(l, tx+8, ty+13+li*16);
+    });
+  };
+  if (!canvas._evt) {
+    canvas._evt = true;
+    canvas.addEventListener('mousemove', tip);
+    canvas.addEventListener('touchstart', e => { e.preventDefault(); tip(e); }, {passive:false});
+    canvas.addEventListener('touchmove', e => { e.preventDefault(); tip(e); }, {passive:false});
+    canvas.addEventListener('mouseleave', () => drawLineChart(canvas, labels, pctData, wrongData));
+  }
+}
+
+function drawBarChart(canvas, labels, data) {
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth || 300;
+  const H = canvas.offsetHeight || 80;
+  canvas.width = W*dpr; canvas.height = H*dpr;
+  canvas.style.width = W+'px'; canvas.style.height = H+'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+  const p = {t:6,r:6,b:20,l:20};
+  const pw = W-p.l-p.r, ph = H-p.t-p.b;
+  const n = labels.length;
+  const maxV = Math.max(...data,1);
+  ctx.fillStyle='#181c27'; ctx.fillRect(0,0,W,H);
+  [0, Math.ceil(maxV/2), maxV].forEach(v => {
+    const y = p.t+ph-(v/maxV)*ph;
+    ctx.strokeStyle='rgba(42,48,69,.5)'; ctx.lineWidth=.5;
+    ctx.beginPath(); ctx.moveTo(p.l,y); ctx.lineTo(p.l+pw,y); ctx.stroke();
+    ctx.fillStyle='#7a8399'; ctx.font='8px monospace'; ctx.textAlign='right';
+    ctx.fillText(v, p.l-2, y+3);
+  });
+  const gap = pw/n, bw = Math.max(5, gap*0.65);
+  data.forEach((v,i) => {
+    const bh = (v/maxV)*ph;
+    const x = p.l+i*gap+(gap-bw)/2;
+    const y = p.t+ph-bh;
+    ctx.fillStyle = v===0?'rgba(62,207,142,.45)':v>=3?'rgba(240,79,89,.7)':'rgba(245,166,35,.6)';
+    ctx.strokeStyle = v===0?'#3ecf8e':v>=3?'#f04f59':'#f5a623';
+    ctx.lineWidth=1.5;
+    _rr(ctx, x, Math.max(y,p.t), bw, Math.min(bh,ph), 3);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#7a8399'; ctx.font='8px monospace'; ctx.textAlign='center';
+    ctx.fillText(labels[i], x+bw/2, H-5);
+  });
+}
+</script>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div>
+      <h1>Asya Toker — Konu Analizi</h1>
+      <p>RENK KURS · Gelişimsel Bilgi Haritası · 12/402</p>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('genel', this)">📈 Genel Trend</button>
+    <button class="tab" onclick="switchTab('mat', this)">🔢 Matematik Yanlış</button>
+  </div>
+</div>
+
+<!-- GENEL PAGE -->
+<div id="page-genel" class="page visible">
+  <div class="filters">
+    <input class="search-box" type="text" id="searchBox" placeholder="🔍 Kazanım veya ders ara..." oninput="applyFilters()">
+    <div class="chip-row">
+      <span class="chip all active" onclick="setTF('hepsi',this)">Tümü</span>
+      <span class="chip azalan" onclick="setTF('azalan',this)">🔴 Azalan</span>
+      <span class="chip sabit" onclick="setTF('sabit',this)">🟡 Sabit</span>
+    </div>
+    <div class="subject-pills" id="subjectPills"></div>
+  </div>
+  <div class="list-count" id="listCount"></div>
+  <div class="item-list" id="itemList"></div>
+</div>
+
+<!-- MAT PAGE -->
+<div id="page-mat" class="page">
+  <div class="mat-head">
+    <h2>Matematik — Yanlış Sayısı Azalmayan Konular</h2>
+    <p id="matCount"></p>
+    <div class="sort-row">
+      <button class="sort-btn active" onclick="renderMat('severity',this)">Önceliğe göre</button>
+      <button class="sort-btn" onclick="renderMat('alpha',this)">Konuya göre</button>
+      <button class="sort-btn" onclick="renderMat('exams',this)">Sınav sayısına</button>
+    </div>
+  </div>
+  <div class="mat-list" id="matList"></div>
+</div>
+
+<!-- DETAIL SHEET -->
+<div class="backdrop" id="backdrop" onclick="closeSheet()"></div>
+<div class="detail-sheet" id="detailSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">
+    <button class="sheet-close" onclick="closeSheet()">✕</button>
+    <div class="sheet-ders" id="sheetDers"></div>
+    <div class="sheet-title" id="sheetTitle"></div>
+    <div class="stat-row">
+      <div class="stat-pill red"><div class="val" id="statStart"></div><div class="lbl">İlk</div></div>
+      <div class="stat-pill orange"><div class="val" id="statEnd"></div><div class="lbl">Son</div></div>
+      <div class="stat-pill" id="statChangePill"><div class="val" id="statChange"></div><div class="lbl">Değişim</div></div>
+      <div class="stat-pill"><div class="val" id="statExams"></div><div class="lbl">Sınav</div></div>
+    </div>
+  </div>
+  <div class="sheet-legend">
+    <span><span class="legend-dot" style="background:#7c6af7"></span>Doğru %</span>
+    <span><span class="legend-dot" style="background:#f04f59"></span>Yanlış</span>
+  </div>
+  <div class="sheet-body">
+    <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
+    <div class="exam-table">
+      <h3>Deneme Bazında Sonuçlar</h3>
+      <div id="examRows"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const RAW = {"problem_items":[{"ders":"Biyoloji","kazanim":"Mitoz ve Eşeysiz Üreme","yuzde_list":[100.0,0.0,100.0,100.0],"yanlis_list":[0,1,0,0],"dogru_list":[1,0,1,1],"labels":["K02","K04","K12","K25"],"net_change":0.0,"trend":"sabit","avg_pct":75.0,"volatility":100.0,"dogru_top":3,"toplam_soru":4},{"ders":"Biyoloji","kazanim":"Mitozu açıklar.","yuzde_list":[50.0,0.0,0.0],"yanlis_list":[2,1,1],"dogru_list":[2,0,0],"labels":["K02","Y03","K07"],"net_change":-50.0,"trend":"azalan","avg_pct":16.7,"volatility":50.0,"dogru_top":2,"toplam_soru":6},{"ders":"Biyoloji","kazanim":"Mayozu açıklar.","yuzde_list":[50.0,0.0,0.0],"yanlis_list":[1,1,1],"dogru_list":[1,0,0],"labels":["K02","K01","K08"],"net_change":-50.0,"trend":"azalan","avg_pct":16.7,"volatility":50.0,"dogru_top":1,"toplam_soru":4},{"ders":"Biyoloji","kazanim":"Kalıtımın genel esaslarını açıklar.","yuzde_list":[100.0,100.0,100.0,100.0,0.0],"yanlis_list":[0,0,0,0,1],"dogru_list":[1,1,1,1,0],"labels":["Y03","Y05","K01","K07","K08"],"net_change":-100.0,"trend":"azalan","avg_pct":80.0,"volatility":100.0,"dogru_top":4,"toplam_soru":5},{"ders":"Biyoloji","kazanim":"Ekosistem Ekolojisi","yuzde_list":[100.0,100.0,0.0,100.0],"yanlis_list":[0,0,1,0],"dogru_list":[1,1,0,1],"labels":["K04","K09","K12","K13"],"net_change":0.0,"trend":"sabit","avg_pct":75.0,"volatility":100.0,"dogru_top":3,"toplam_soru":4},{"ders":"Biyoloji","kazanim":"Denetleyici ve Düzeleyici Sistem, Duyu Organları","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Biyoloji","kazanim":"Endokrin bezleri ve bu bezlerin salgıladıkları hormonları açıklar.","yuzde_list":[100.0,100.0,0.0,100.0],"yanlis_list":[0,0,1,0],"dogru_list":[1,1,0,1],"labels":["K10","K11","K13","K17"],"net_change":0.0,"trend":"sabit","avg_pct":75.0,"volatility":100.0,"dogru_top":3,"toplam_soru":4},{"ders":"Biyoloji","kazanim":"Duyu organlarının yapısını ve işleyişini açıklar.","yuzde_list":[100.0,100.0,0.0],"yanlis_list":[0,0,1],"dogru_list":[1,1,0],"labels":["K10","K11","K17"],"net_change":-100.0,"trend":"azalan","avg_pct":66.7,"volatility":100.0,"dogru_top":2,"toplam_soru":3},{"ders":"Biyoloji","kazanim":"Destek ve Hareket Sistemi","yuzde_list":[100.0,50.0],"yanlis_list":[0,1],"dogru_list":[2,1],"labels":["K10","K11"],"net_change":-50.0,"trend":"azalan","avg_pct":75.0,"volatility":50.0,"dogru_top":3,"toplam_soru":4},{"ders":"Biyoloji","kazanim":"Kalp, kan ve damarların yapı, görev ve işleyişini açıklar.","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["K13","K17"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":1,"toplam_soru":2},{"ders":"Biyoloji","kazanim":"Üriner Sistem","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["K10","K11"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":1,"toplam_soru":2},{"ders":"Biyoloji","kazanim":"Üreme Sistemi ve Embriyonik Gelişim","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["K10","K11"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":1,"toplam_soru":2},{"ders":"Biyoloji","kazanim":"Popülasyon Ekolojisi","yuzde_list":[100.0,0.0,100.0],"yanlis_list":[0,1,0],"dogru_list":[1,0,1],"labels":["K10","K11","K17"],"net_change":0.0,"trend":"sabit","avg_pct":66.7,"volatility":100.0,"dogru_top":2,"toplam_soru":3},{"ders":"Biyoloji","kazanim":"Hücresel Solunum","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["Y06","K17"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Biyoloji","kazanim":"Canlıların yapısını oluşturan organik ve inorganik bileşikleri açıklar.","yuzde_list":[100.0,0.0,100.0,100.0],"yanlis_list":[0,1,0,0],"dogru_list":[1,0,1,1],"labels":["Y05","K01","K07","K08"],"net_change":0.0,"trend":"sabit","avg_pct":75.0,"volatility":100.0,"dogru_top":3,"toplam_soru":4},{"ders":"Biyoloji","kazanim":"Hücresel yapıları ve görevlerini açıklar.","yuzde_list":[0.0,100.0,0.0,100.0,0.0],"yanlis_list":[1,0,1,0,1],"dogru_list":[0,1,0,1,0],"labels":["Y03","Y05","K01","K03","K07"],"net_change":0.0,"trend":"sabit","avg_pct":40.0,"volatility":100.0,"dogru_top":2,"toplam_soru":5},{"ders":"Biyoloji","kazanim":"Canlıların sınıflandırılmasında kullanılan kategorileri ve bu kategoriler arasındaki hiyerarşiyi örneklerle açıklar.","yuzde_list":[100.0,0.0,100.0,100.0],"yanlis_list":[0,1,0,0],"dogru_list":[1,0,1,1],"labels":["Y03","K01","K07","K16"],"net_change":0.0,"trend":"sabit","avg_pct":75.0,"volatility":100.0,"dogru_top":3,"toplam_soru":4},{"ders":"Biyoloji","kazanim":"Canlıları sınıflandırabilme","yuzde_list":[100.0,0.0,100.0,100.0,0.0,100.0],"yanlis_list":[0,1,0,0,1,0],"dogru_list":[1,0,1,1,0,1],"labels":["K04","K05","K09","K12","K13","K25"],"net_change":0.0,"trend":"sabit","avg_pct":66.7,"volatility":100.0,"dogru_top":4,"toplam_soru":6},{"ders":"Biyoloji","kazanim":"pH ve sıcaklığın enzim aktivitesini etkilediğini gösteren deney yapabilme","yuzde_list":[100.0,100.0,0.0],"yanlis_list":[0,0,1],"dogru_list":[1,1,0],"labels":["K04","K05","K09"],"net_change":-100.0,"trend":"azalan","avg_pct":66.7,"volatility":100.0,"dogru_top":2,"toplam_soru":3},{"ders":"Coğrafya","kazanim":"Bitki toplulukları ve türlerini genel özelliklerine göre sınıflandırır.","yuzde_list":[0.0,100.0,100.0,0.0],"yanlis_list":[1,0,0,1],"dogru_list":[0,1,1,0],"labels":["K01","K05","K12","K25"],"net_change":0.0,"trend":"sabit","avg_pct":50.0,"volatility":100.0,"dogru_top":2,"toplam_soru":4},{"ders":"Coğrafya","kazanim":"İç kuvvetleri; yer şekillerinin oluşum sürecine etkileri açısından açıklar.","yuzde_list":[100.0,0.0,0.0],"yanlis_list":[0,1,1],"dogru_list":[1,0,0],"labels":["Y05","K03","K13"],"net_change":-100.0,"trend":"azalan","avg_pct":33.3,"volatility":100.0,"dogru_top":1,"toplam_soru":3},{"ders":"Coğrafya","kazanim":"Dış kuvvetleri yer şekillerinin oluşum sürecine etkileri açısından açıklar.","yuzde_list":[0.0,100.0,0.0],"yanlis_list":[2,0,1],"dogru_list":[0,1,0],"labels":["Y05","K08","K09"],"net_change":0.0,"trend":"sabit","avg_pct":33.3,"volatility":100.0,"dogru_top":1,"toplam_soru":4},{"ders":"Coğrafya","kazanim":"Afetlerin oluşum nedenlerini ve özelliklerini açıklar.","yuzde_list":[100.0,0.0,100.0,0.0],"yanlis_list":[0,1,0,1],"dogru_list":[1,0,1,0],"labels":["K01","K05","K07","K25"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":2,"toplam_soru":4},{"ders":"Coğrafya","kazanim":"Biyoçeşitliliğin oluşumu ve azalmasında etkili olan faktörleri açıklar.","yuzde_list":[0.0,0.0,0.0],"yanlis_list":[1,1,1],"dogru_list":[0,0,0],"labels":["K10","K11","K17"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":3},{"ders":"Coğrafya","kazanim":"Ülkelerin farklı dönemlerde izledikleri nüfus politikaları ve sonuçlarını karşılaştırır.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Coğrafya","kazanim":"Doğal kaynaklar ile ekonomi ilişkisini açıklar.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Coğrafya","kazanim":"Türkiye'nin madenleri ve enerji kaynaklarının dağılışını açıklar.","yuzde_list":[0.0,0.0,0.0,0.0],"yanlis_list":[1,1,1,1],"dogru_list":[0,0,0,0],"labels":["Y03","K10","K11","K17"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":4},{"ders":"Coğrafya","kazanim":"Türkiye'nin nüfus politikalarını gerekçeleri açısından değerlendirir.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Coğrafya","kazanim":"İlk kültür merkezlerinin ortaya çıkışı, yayılışı ve dağılışlarını belirleyen faktörleri açıklar.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Coğrafya","kazanim":"Ülkeler arası etkileşimde turizm faaliyetlerinin rolünü açıklar.","yuzde_list":[0.0,0.0,0.0],"yanlis_list":[1,1,1],"dogru_list":[0,0,0],"labels":["K10","K11","K17"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":3},{"ders":"Coğrafya","kazanim":"Çevre sorunlarını oluşum sebeplerine göre sınıflandırır.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Coğrafya","kazanim":"Doğa olaylarının ekstrem durumlarını ve etkilerini açıklar.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Coğrafya","kazanim":"Doğal sistemlerdeki değişimlerle ilgili geleceğe yönelik çıkarımlarda bulunur.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Coğrafya","kazanim":"Turizmin Türkiye ekonomisindeki yerini değerlendirir.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Coğrafya","kazanim":"Şehirleşme, göç ve sanayileşme ilişkisini toplumsal etkileri açısından yorumlar.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Coğrafya","kazanim":"Ülkemizdeki işlevsel bölgeleri özelliklerine göre analiz eder.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Coğrafya","kazanim":"Ülkeler arasında sorun oluşturan mekânsal unsurları günümüz çatışma alanlarıyla ilişkilendirir.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Coğrafya","kazanim":"Gelişmiş ve gelişmekte olan ülkelerin ekonomik özelliklerini karşılaştırır.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Coğrafya","kazanim":"Farklı gelişmişlik düzeyine sahip ülkelerin çevre sorunlarının önlenmesine yönelik politika ve uygulamalarını karşılaştırır.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Coğrafya","kazanim":"İklim elemanlarının oluşumunu ve dağılışını açıklar.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["Y03","K01"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Coğrafya","kazanim":"Haritayı oluşturan unsurlardan yararlanarak harita kullanır.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K13","K16"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Coğrafya","kazanim":"Haritalarda yer şekillerinin gösteriminde kullanılan yöntem ve teknikleri açıklar.","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["Y05","K05"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":1,"toplam_soru":2},{"ders":"Coğrafya","kazanim":"Dünyadaki farklı bölge örneklerini, özellikleri ve bölge belirlemede kullanılan kriterler açısından değerlendirir.","yuzde_list":[100.0,0.0,100.0,100.0,0.0,100.0,100.0,0.0,100.0,100.0,100.0],"yanlis_list":[0,1,0,0,1,0,0,1,0,0,0],"dogru_list":[1,0,1,1,0,1,1,0,1,1,1],"labels":["Y03","K01","K04","K05","K07","K08","K09","K12","K13","K16","K25"],"net_change":0.0,"trend":"sabit","avg_pct":72.7,"volatility":100.0,"dogru_top":8,"toplam_soru":11},{"ders":"Din Kültürü","kazanim":"Allah'ın varlığı ve birliği konusunda akli ve naklî delilleri analiz eder.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Din Kültürü","kazanim":"Hz. Muhammed ile genç sahabiler arasındaki iletişimi değerlendirir.","yuzde_list":[100.0,0.0,0.0],"yanlis_list":[0,1,1],"dogru_list":[1,0,0],"labels":["K03","K10","K11"],"net_change":-100.0,"trend":"azalan","avg_pct":33.3,"volatility":100.0,"dogru_top":1,"toplam_soru":3},{"ders":"Din Kültürü","kazanim":"Bazı genç sahabilerin öne çıkan özelliklerini örnek alır.","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["K04","K25"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":1,"toplam_soru":2},{"ders":"Din Kültürü","kazanim":"İslam dininin kültür, sanat ve düşünce üzerindeki etkilerini analiz eder.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Din Kültürü","kazanim":"İslam ahlakında yerilen bazı davranışları ayet ve hadislerle açıklar.","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["K12","K13"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":1,"toplam_soru":2},{"ders":"Din Kültürü","kazanim":"İbadet yükümlülüğü ile ilgili bazı kavramları sınıflandırır.","yuzde_list":[0.0,0.0,0.0],"yanlis_list":[1,1,1],"dogru_list":[0,0,0],"labels":["K09","K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":3},{"ders":"Din Kültürü","kazanim":"Değerlerin oluşumuna etki eden unsurları analiz eder.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Din Kültürü","kazanim":"İslam medeniyetinin, dünyanın farklı bölgelerindeki etkilerini fark eder.","yuzde_list":[100.0,0.0,0.0],"yanlis_list":[0,1,1],"dogru_list":[1,0,0],"labels":["K04","K10","K11"],"net_change":-100.0,"trend":"azalan","avg_pct":33.3,"volatility":100.0,"dogru_top":1,"toplam_soru":3},{"ders":"EDEBİYAT AYT","kazanim":"Şiir Bilgisi","yuzde_list":[0.0,0.0],"yanlis_list":[2,1],"dogru_list":[0,0],"labels":["K13","K17"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":3},{"ders":"EDEBİYAT AYT","kazanim":"Tekke-Tasavvuf Halk Edebiyatı","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K13","K17"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"EDEBİYAT AYT","kazanim":"Tanzimat Dönemi","yuzde_list":[0.0,0.0],"yanlis_list":[2,1],"dogru_list":[0,0],"labels":["K13","K17"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":3},{"ders":"EDEBİYAT AYT","kazanim":"Cunhuriyet Dönemi Edebiyatı","yuzde_list":[0.0,0.0],"yanlis_list":[1,5],"dogru_list":[0,0],"labels":["K13","K17"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":6},{"ders":"Felsefe","kazanim":"Bilgi felsefesinin konusunu ve problemlerini açıklar.","yuzde_list":[100.0,0.0,100.0,100.0,100.0],"yanlis_list":[0,1,0,0,0],"dogru_list":[1,0,1,1,1],"labels":["K04","K05","K09","K13","K25"],"net_change":0.0,"trend":"sabit","avg_pct":80.0,"volatility":100.0,"dogru_top":4,"toplam_soru":5},{"ders":"Felsefe","kazanim":"Ahlak felsefesinin konusunu ve problemlerini açıklar.","yuzde_list":[100.0,100.0,100.0,50.0,100.0],"yanlis_list":[0,0,0,1,0],"dogru_list":[1,1,1,1,1],"labels":["K04","K05","K09","K13","K25"],"net_change":0.0,"trend":"sabit","avg_pct":90.0,"volatility":50.0,"dogru_top":5,"toplam_soru":6},{"ders":"Felsefe","kazanim":"18. YÜZYIL-19. YÜZYIL FELSEFESİ","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Fizik","kazanim":"Elektrik enerjisi ve elektriksel güç kavramlarını ilişkilendirir.","yuzde_list":[66.7,0.0],"yanlis_list":[1,1],"dogru_list":[2,0],"labels":["K02","K07"],"net_change":-66.7,"trend":"azalan","avg_pct":33.4,"volatility":66.7,"dogru_top":2,"toplam_soru":4},{"ders":"Fizik","kazanim":"SES DALGASI","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K01","K09"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Fizik","kazanim":"DÜZLEM AYNA","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["K04","K25"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":1,"toplam_soru":2},{"ders":"Fizik","kazanim":"İTME VE ÇİZGİSEL MOMENTUM","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Fizik","kazanim":"ELEKTRİKSEL POTANSİYEL","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["K10","K11"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":1,"toplam_soru":2},{"ders":"Fizik","kazanim":"MANYETİZMA VE ELEKTROMANYETİK İNDÜKLENME","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["K10","K11"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":1,"toplam_soru":2},{"ders":"Fizik","kazanim":"DÜZGÜN ÇEMBERSEL HAREKET","yuzde_list":[100.0,100.0,0.0,0.0],"yanlis_list":[0,0,1,1],"dogru_list":[2,2,0,0],"labels":["K10","K11","K13","K17"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":4,"toplam_soru":6},{"ders":"Fizik","kazanim":"FİZİK BİLİMİNE GİRİŞ","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["Y03","K25"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":1,"toplam_soru":2},{"ders":"Fizik","kazanim":"MADDE VE ÖZELLİKLERİ","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["K12","K13"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":1,"toplam_soru":2},{"ders":"Fizik","kazanim":"ENERJİ","yuzde_list":[100.0,100.0,0.0,100.0],"yanlis_list":[0,0,1,0],"dogru_list":[1,1,0,1],"labels":["K04","K08","K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":75.0,"volatility":100.0,"dogru_top":3,"toplam_soru":4},{"ders":"Fizik","kazanim":"ISI VE SICAKLIK","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K12","K13"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"İnkılap Tarihi Ortaöğretim","kazanim":"Mustafa Kemal'in Birinci Dünya Savaşı'na kadarki eğitim ve askerlik hayatını içinde bulunduğu toplumun siyasi, sosyal ve kültürel yapısı ile ilişkilendirir.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"İnkılap Tarihi Ortaöğretim","kazanim":"20. yüzyıl başlarında Osmanlı Devleti'nin siyasi, sosyal ve ekonomik durumunu analiz eder.","yuzde_list":[100.0,0.0,0.0],"yanlis_list":[0,2,2],"dogru_list":[1,0,0],"labels":["K04","K10","K11"],"net_change":-100.0,"trend":"azalan","avg_pct":33.3,"volatility":100.0,"dogru_top":1,"toplam_soru":5},{"ders":"İnkılap Tarihi Ortaöğretim","kazanim":"I. Dünya Savaşı sürecinde Osmanlı Devleti'nin durumunu siyasi, askerî ve sosyal açılardan analiz eder.","yuzde_list":[0.0,0.0,0.0,100.0,0.0],"yanlis_list":[1,3,3,0,1],"dogru_list":[0,0,0,1,0],"labels":["K09","K10","K11","K12","K25"],"net_change":0.0,"trend":"sabit","avg_pct":20.0,"volatility":100.0,"dogru_top":1,"toplam_soru":9},{"ders":"İnkılap Tarihi","kazanim":"MİLLÎ BİR DESTAN: YA İSTİKLAL YA ÖLÜM!","yuzde_list":[100.0,0.0,0.0,0.0,0.0],"yanlis_list":[0,1,1,1,1],"dogru_list":[1,0,0,0,0],"labels":["Y03","K01","K07","K16","K17"],"net_change":-100.0,"trend":"azalan","avg_pct":20.0,"volatility":100.0,"dogru_top":1,"toplam_soru":5},{"ders":"İnkılap Tarihi","kazanim":"ATATÜRKÇÜLÜK VE ÇAĞDAŞLAŞAN TÜRKİYE","yuzde_list":[100.0,100.0,0.0,0.0],"yanlis_list":[0,0,1,1],"dogru_list":[1,1,0,0],"labels":["Y05","K01","K16","K17"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":2,"toplam_soru":4},{"ders":"Kimya","kazanim":"Kimyanın temel kanunlarını açıklar.","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["K03","K16"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":1,"toplam_soru":2},{"ders":"Kimya","kazanim":"Çözünmüş madde oranını belirten ifadeleri yorumlar","yuzde_list":[100.0,100.0,100.0,0.0,100.0],"yanlis_list":[0,0,0,1,0],"dogru_list":[1,1,1,0,1],"labels":["Y05","K01","K07","K09","K25"],"net_change":0.0,"trend":"sabit","avg_pct":80.0,"volatility":100.0,"dogru_top":4,"toplam_soru":5},{"ders":"Kimya","kazanim":"Ayırma ve Saflaştırma Teknikleri","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["K04","K12"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":1,"toplam_soru":2},{"ders":"Kimya","kazanim":"Asitlerin ve Bazların Tepkimeleri","yuzde_list":[0.0,0.0,100.0,100.0,100.0,0.0,0.0],"yanlis_list":[1,1,0,0,0,1,1],"dogru_list":[0,0,1,1,1,0,0],"labels":["Y03","Y05","K03","K04","K12","K13","K16"],"net_change":0.0,"trend":"sabit","avg_pct":42.9,"volatility":100.0,"dogru_top":3,"toplam_soru":7},{"ders":"Kimya","kazanim":"Yaygın polimerlerin kullanım alanlarına örnekler verir.","yuzde_list":[0.0,0.0,0.0],"yanlis_list":[1,1,1],"dogru_list":[0,0,0],"labels":["Y05","K13","K25"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":3},{"ders":"Kimya","kazanim":"Atomu kuantum modeliyle açıklar.","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["K10","K11"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":1,"toplam_soru":2},{"ders":"Kimya","kazanim":"Derişim Birimleri","yuzde_list":[100.0,100.0,0.0],"yanlis_list":[0,0,1],"dogru_list":[1,1,0],"labels":["K10","K11","K17"],"net_change":-100.0,"trend":"azalan","avg_pct":66.7,"volatility":100.0,"dogru_top":2,"toplam_soru":3},{"ders":"Kimya","kazanim":"Tepkimelerde Isı Değişimi","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["K10","K11"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":1,"toplam_soru":2},{"ders":"Kimya","kazanim":"Kimyasal Denge","yuzde_list":[100.0,100.0,0.0,0.0],"yanlis_list":[0,0,1,1],"dogru_list":[1,1,0,0],"labels":["K10","K11","K13","K17"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":2,"toplam_soru":4},{"ders":"Kimya","kazanim":"Kuvvetli ve zayıf monoprotik asit/baz çözeltilerinin pH değerlerini hesaplar.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K13","K17"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Kimya","kazanim":"Kuvvetli asit/baz derişimlerini titrasyon yöntemiyle belirler.","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["K10","K11"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":1,"toplam_soru":2},{"ders":"Kimya","kazanim":"Sulu ortamlarda çözünme-çökelme dengelerini açıklar.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K13","K17"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Kimya","kazanim":"Redoks tepkimelerini tanır.","yuzde_list":[100.0,100.0,0.0,100.0],"yanlis_list":[0,0,1,0],"dogru_list":[1,1,0,1],"labels":["Y06","K10","K11","K13"],"net_change":0.0,"trend":"sabit","avg_pct":75.0,"volatility":100.0,"dogru_top":3,"toplam_soru":4},{"ders":"Kimya","kazanim":"Standart koşullarda galvanik pillerin voltajını ve kullanım ömrünü örnekler vererek açıklar.","yuzde_list":[50.0,100.0,0.0],"yanlis_list":[1,0,1],"dogru_list":[1,1,0],"labels":["Y06","K13","K17"],"net_change":-50.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":2,"toplam_soru":4},{"ders":"Kimya","kazanim":"Kimya Uygulamalarında İş Sağlığı ve Güvenliği","yuzde_list":[100.0,0.0,100.0,100.0,100.0,100.0,100.0],"yanlis_list":[0,1,0,0,0,0,0],"dogru_list":[1,0,1,1,1,1,1],"labels":["Y03","K04","K05","K12","K13","K16","K25"],"net_change":0.0,"trend":"sabit","avg_pct":85.7,"volatility":100.0,"dogru_top":6,"toplam_soru":7},{"ders":"Kimya","kazanim":"Atom Modelleri","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["Y03","K09"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":1,"toplam_soru":2},{"ders":"Kimya","kazanim":"Kapalı kaplarda gerçekleşen buharlaşma-yoğuşma süreçleri üzerinden denge buhar basıncı kavramını açıklar.","yuzde_list":[100.0,0.0,100.0,100.0,100.0],"yanlis_list":[0,1,0,0,0],"dogru_list":[1,0,1,1,1],"labels":["Y03","Y05","K05","K12","K16"],"net_change":0.0,"trend":"sabit","avg_pct":80.0,"volatility":100.0,"dogru_top":4,"toplam_soru":5},{"ders":"Matematik","kazanim":"Sıralama ve Seçme","yuzde_list":[0.0,100.0,100.0,100.0,0.0,0.0],"yanlis_list":[1,0,0,0,1,1],"dogru_list":[0,1,1,1,0,0],"labels":["K05","K07","K08","K10","K11","K17"],"net_change":0.0,"trend":"sabit","avg_pct":50.0,"volatility":100.0,"dogru_top":3,"toplam_soru":6},{"ders":"Matematik","kazanim":"Sınırlı sayıda tekrarlayan nesnelerin dizilişlerini (permütasyonlarını) açıklayarak problemler çözer","yuzde_list":[0.0,0.0,100.0,100.0,0.0],"yanlis_list":[1,1,0,0,1],"dogru_list":[0,0,1,1,0],"labels":["K02","K01","K09","K12","K13"],"net_change":0.0,"trend":"sabit","avg_pct":40.0,"volatility":100.0,"dogru_top":2,"toplam_soru":5},{"ders":"Matematik","kazanim":"n elemanlı bir kümenin r tane elemanının kaç farklı şekilde seçilebileceğini hesaplar.","yuzde_list":[100.0,100.0,100.0,0.0,100.0],"yanlis_list":[0,0,0,1,0],"dogru_list":[2,1,1,0,1],"labels":["K02","Y03","Y05","K04","K25"],"net_change":0.0,"trend":"sabit","avg_pct":80.0,"volatility":100.0,"dogru_top":5,"toplam_soru":6},{"ders":"Matematik","kazanim":"Pascal üçgenini açıklar.","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["K10","K11"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":1,"toplam_soru":2},{"ders":"Matematik","kazanim":"Basit Olayların Olasılıkları","yuzde_list":[100.0,100.0,100.0,100.0,0.0],"yanlis_list":[0,0,0,0,1],"dogru_list":[1,1,1,1,0],"labels":["K01","K03","K05","K07","K08"],"net_change":-100.0,"trend":"azalan","avg_pct":80.0,"volatility":100.0,"dogru_top":4,"toplam_soru":5},{"ders":"Matematik","kazanim":"SAYILAR VE CEBİR / Fonksiyonlar","yuzde_list":[100.0,100.0,100.0,100.0,0.0,100.0,100.0],"yanlis_list":[0,0,0,0,1,0,0],"dogru_list":[1,1,1,1,0,1,1],"labels":["K04","K09","K10","K11","K13","K17","K25"],"net_change":0.0,"trend":"sabit","avg_pct":85.7,"volatility":100.0,"dogru_top":6,"toplam_soru":7},{"ders":"Matematik","kazanim":"SAYILAR VE CEBİR / Polinomlar","yuzde_list":[100.0,0.0,100.0,100.0,0.0,0.0],"yanlis_list":[0,1,0,0,1,1],"dogru_list":[1,0,1,1,0,0],"labels":["K04","K10","K11","K13","K17","K25"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":3,"toplam_soru":6},{"ders":"Matematik","kazanim":"İkinci Dereceden Bir Bilinmeyenli Denklemler","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["K04","K13"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":1,"toplam_soru":2},{"ders":"Matematik","kazanim":"Dörtgenler ve Özellikleri","yuzde_list":[100.0,50.0],"yanlis_list":[0,1],"dogru_list":[1,1],"labels":["Y05","Y06"],"net_change":-50.0,"trend":"azalan","avg_pct":75.0,"volatility":50.0,"dogru_top":2,"toplam_soru":3},{"ders":"Matematik","kazanim":"Dörtgenin temel elemanlarını ve özelliklerini açıklayarak problemler çözer.","yuzde_list":[0.0,0.0],"yanlis_list":[2,1],"dogru_list":[0,0],"labels":["Y05","Y06"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":3},{"ders":"Matematik","kazanim":"Özel dörtgenlerin açı, kenar, köşegen ve alan özelliklerini açıklayarak problemler çözer.","yuzde_list":[0.0,75.0,0.0,16.7,0.0],"yanlis_list":[3,1,1,5,2],"dogru_list":[0,3,0,1,0],"labels":["Y03","Y05","Y06","K01","K08"],"net_change":0.0,"trend":"sabit","avg_pct":18.3,"volatility":75.0,"dogru_top":4,"toplam_soru":16},{"ders":"Matematik","kazanim":"Katı Cisimler","yuzde_list":[100.0,100.0,50.0,100.0,100.0],"yanlis_list":[0,0,1,0,0],"dogru_list":[1,1,1,1,1],"labels":["Y03","Y05","K07","K11","K16"],"net_change":0.0,"trend":"sabit","avg_pct":90.0,"volatility":50.0,"dogru_top":5,"toplam_soru":6},{"ders":"Matematik","kazanim":"Dik prizmalar ve dik piramitlerin uzunluk, alan ve hacim bağıntılarını oluşturur.","yuzde_list":[0.0,0.0,0.0],"yanlis_list":[1,2,1],"dogru_list":[0,0,0],"labels":["Y03","K08","K16"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":4},{"ders":"Matematik","kazanim":"Trigonometrik Fonksiyonlar","yuzde_list":[100.0,100.0,100.0,0.0],"yanlis_list":[0,0,0,1],"dogru_list":[1,2,1,0],"labels":["K03","K11","K13","K17"],"net_change":-100.0,"trend":"azalan","avg_pct":75.0,"volatility":100.0,"dogru_top":4,"toplam_soru":5},{"ders":"Matematik","kazanim":"Katı Cisimler","yuzde_list":[100.0,100.0,0.0,100.0,100.0,50.0,100.0],"yanlis_list":[0,0,2,0,0,1,0],"dogru_list":[2,2,0,1,2,1,2],"labels":["K04","K05","K09","K11","K12","K13","K25"],"net_change":0.0,"trend":"sabit","avg_pct":78.6,"volatility":100.0,"dogru_top":10,"toplam_soru":13},{"ders":"Matematik","kazanim":"VERİ, SAYMA VE OLASILIK / Olasılık","yuzde_list":[100.0,0.0,0.0,0.0,0.0,0.0],"yanlis_list":[0,1,1,1,1,1],"dogru_list":[1,0,0,0,0,0],"labels":["K04","K09","K11","K12","K13","K25"],"net_change":-100.0,"trend":"azalan","avg_pct":16.7,"volatility":100.0,"dogru_top":1,"toplam_soru":6},{"ders":"Matematik","kazanim":"Eşit miktarda artarak devam eden sınırlı sayıdaki doğal sayıların toplamını bulur.","yuzde_list":[100.0,100.0,100.0,0.0,100.0],"yanlis_list":[0,0,0,1,0],"dogru_list":[1,1,1,0,1],"labels":["K04","K05","K12","K13","K25"],"net_change":0.0,"trend":"sabit","avg_pct":80.0,"volatility":100.0,"dogru_top":4,"toplam_soru":5},{"ders":"Matematik","kazanim":"Logaritma Fonksiyonu","yuzde_list":[100.0,75.0,50.0],"yanlis_list":[0,1,2],"dogru_list":[1,3,2],"labels":["Y06","K10","K11"],"net_change":-50.0,"trend":"azalan","avg_pct":75.0,"volatility":50.0,"dogru_top":6,"toplam_soru":9},{"ders":"Matematik","kazanim":"Limit ve Süreklilik","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["Y06","K17"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":1,"toplam_soru":2},{"ders":"Matematik","kazanim":"Bir fonksiyonun bir noktadaki limiti, soldan limit ve sağdan limit kavramlarını açıklar.","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[2,0],"labels":["Y06","K17"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":2,"toplam_soru":3},{"ders":"Matematik","kazanim":"İki fonksiyonun bileşkesinin türevine ait kuralı (zincir kuralı) oluşturularak türev hesabı yapar.","yuzde_list":[50.0,0.0],"yanlis_list":[1,1],"dogru_list":[1,0],"labels":["Y06","K17"],"net_change":-50.0,"trend":"azalan","avg_pct":25.0,"volatility":50.0,"dogru_top":1,"toplam_soru":3},{"ders":"Matematik","kazanim":"SAYILAR VE CEBİR / Mantık","yuzde_list":[100.0,100.0,100.0,0.0,100.0,100.0,0.0,100.0,100.0,100.0],"yanlis_list":[0,0,0,1,0,0,1,0,0,0],"dogru_list":[1,1,1,0,1,1,0,1,1,1],"labels":["K01","K05","K08","K10","K11","K12","K13","K16","K17","K25"],"net_change":0.0,"trend":"sabit","avg_pct":80.0,"volatility":100.0,"dogru_top":8,"toplam_soru":10},{"ders":"Matematik","kazanim":"SAYILAR VE CEBİR / Kümeler","yuzde_list":[0.0,100.0,0.0,100.0,100.0,0.0],"yanlis_list":[1,0,1,0,0,1],"dogru_list":[0,1,0,1,1,0],"labels":["K01","K04","K05","K08","K09","K12"],"net_change":0.0,"trend":"sabit","avg_pct":50.0,"volatility":100.0,"dogru_top":3,"toplam_soru":6},{"ders":"Matematik","kazanim":"Kümelerde birleşim, kesişim, fark, tümleme işlemleri yardımıyla problemler çözer","yuzde_list":[100.0,0.0,100.0],"yanlis_list":[0,1,0],"dogru_list":[1,0,1],"labels":["K03","K07","K13"],"net_change":0.0,"trend":"sabit","avg_pct":66.7,"volatility":100.0,"dogru_top":2,"toplam_soru":3},{"ders":"Matematik","kazanim":"İki kümenin kartezyen çarpımıyla ilgili işlemler yapar.","yuzde_list":[100.0,100.0,0.0,0.0,100.0],"yanlis_list":[0,0,1,1,0],"dogru_list":[1,1,0,0,1],"labels":["K10","K11","K13","K17","K25"],"net_change":0.0,"trend":"sabit","avg_pct":60.0,"volatility":100.0,"dogru_top":3,"toplam_soru":5},{"ders":"Matematik","kazanim":"Sayı Kümeleri","yuzde_list":[100.0,66.7,0.0,0.0,75.0,100.0,75.0,100.0,100.0,100.0,100.0,75.0,100.0],"yanlis_list":[0,3,1,1,1,0,1,0,0,0,0,1,0],"dogru_list":[1,6,0,0,3,4,3,1,1,3,4,3,2],"labels":["Y03","K01","K03","K04","K05","K08","K09","K10","K11","K12","K16","K17","K25"],"net_change":0.0,"trend":"sabit","avg_pct":76.3,"volatility":100.0,"dogru_top":31,"toplam_soru":39},{"ders":"Matematik","kazanim":"Sayı kümelerini birbiriyle ilişkilendirir.","yuzde_list":[100.0,100.0,100.0,100.0,100.0,0.0],"yanlis_list":[0,0,0,0,0,1],"dogru_list":[3,1,1,4,2,0],"labels":["Y03","Y05","K01","K03","K07","K08"],"net_change":-100.0,"trend":"azalan","avg_pct":83.3,"volatility":100.0,"dogru_top":11,"toplam_soru":12},{"ders":"Matematik","kazanim":"Bölünebilme Kuralları","yuzde_list":[100.0,0.0,0.0,0.0,100.0,0.0],"yanlis_list":[0,1,1,1,0,1],"dogru_list":[1,0,0,0,2,0],"labels":["Y03","K05","K08","K13","K16","K25"],"net_change":-100.0,"trend":"azalan","avg_pct":33.3,"volatility":100.0,"dogru_top":3,"toplam_soru":7},{"ders":"Matematik","kazanim":"Tam sayılarda EBOB ve EKOK ile ilgili uygulamalar yapar.","yuzde_list":[100.0,0.0,0.0],"yanlis_list":[0,1,1],"dogru_list":[1,0,0],"labels":["K10","K11","K13"],"net_change":-100.0,"trend":"azalan","avg_pct":33.3,"volatility":100.0,"dogru_top":1,"toplam_soru":3},{"ders":"Matematik","kazanim":"Gerçek hayatta periyodik olarak tekrar eden durumları içeren problemleri çözer.","yuzde_list":[100.0,75.0,66.7,33.3,100.0,100.0,0.0,100.0,55.6,0.0],"yanlis_list":[0,1,1,2,0,0,1,0,4,1],"dogru_list":[1,3,2,1,1,1,0,4,5,0],"labels":["Y03","K03","K04","K05","K09","K10","K11","K13","K16","K25"],"net_change":-100.0,"trend":"azalan","avg_pct":63.1,"volatility":100.0,"dogru_top":18,"toplam_soru":28},{"ders":"Matematik","kazanim":"Mutlak değer içeren birinci dereceden bir bilinmeyenli denklem ve eşitsizliklerin çözüm kümelerini bulur.","yuzde_list":[100.0,100.0,100.0,0.0,100.0,100.0,100.0,100.0,100.0,100.0],"yanlis_list":[0,0,0,1,0,0,0,0,0,0],"dogru_list":[1,2,2,0,1,1,1,1,1,1],"labels":["Y05","K03","K07","K08","K09","K10","K11","K13","K16","K17"],"net_change":0.0,"trend":"sabit","avg_pct":90.0,"volatility":100.0,"dogru_top":11,"toplam_soru":12},{"ders":"Matematik","kazanim":"Üslü İfadeler ve Denklemler","yuzde_list":[100.0,100.0,0.0,100.0,100.0,100.0,100.0,0.0,100.0,100.0],"yanlis_list":[0,0,1,0,0,0,0,1,0,0],"dogru_list":[1,1,0,1,1,1,1,0,1,1],"labels":["K01","K03","K04","K05","K07","K09","K12","K13","K16","K25"],"net_change":0.0,"trend":"sabit","avg_pct":80.0,"volatility":100.0,"dogru_top":8,"toplam_soru":10},{"ders":"Matematik","kazanim":"Üslü ifadeleri içeren denklemleri çözer.","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["Y05","K08"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":1,"toplam_soru":2},{"ders":"Matematik","kazanim":"Oran ve orantı kavramlarını kullanarak problemler çözer.","yuzde_list":[100.0,50.0,100.0,100.0,100.0,72.7,100.0,100.0,100.0,100.0,50.0],"yanlis_list":[0,1,0,0,0,3,0,0,0,0,1],"dogru_list":[2,1,1,2,1,8,2,1,1,2,1],"labels":["Y03","Y05","K03","K04","K05","K07","K08","K09","K12","K13","K25"],"net_change":-50.0,"trend":"azalan","avg_pct":88.4,"volatility":50.0,"dogru_top":22,"toplam_soru":27},{"ders":"Matematik","kazanim":"Denklemler  ve eşitsizlikler ile ilgili problemler çözer.","yuzde_list":[87.5,63.6,55.6,87.5,100.0,100.0,100.0,63.6,55.6,100.0,87.5,0.0,85.7],"yanlis_list":[1,4,4,1,0,0,0,4,4,0,1,1,1],"dogru_list":[7,7,5,7,4,6,2,7,5,8,7,0,6],"labels":["Y03","Y05","K01","K03","K04","K05","K07","K08","K09","K12","K13","K17","K25"],"net_change":-1.8,"trend":"sabit","avg_pct":75.9,"volatility":100.0,"dogru_top":71,"toplam_soru":92},{"ders":"Matematik","kazanim":"Üçgenlerde Eşlik ve Benzerlik","yuzde_list":[100.0,0.0,100.0],"yanlis_list":[0,2,0],"dogru_list":[1,0,1],"labels":["Y05","K03","K08"],"net_change":0.0,"trend":"sabit","avg_pct":66.7,"volatility":100.0,"dogru_top":2,"toplam_soru":4},{"ders":"Matematik","kazanim":"Üçgenin Alanı","yuzde_list":[0.0,0.0,100.0,100.0,100.0,100.0,100.0,100.0,0.0],"yanlis_list":[1,2,0,0,0,0,0,0,1],"dogru_list":[0,0,1,1,1,1,1,1,0],"labels":["Y03","Y06","K04","K07","K08","K09","K12","K13","K16"],"net_change":0.0,"trend":"sabit","avg_pct":66.7,"volatility":100.0,"dogru_top":6,"toplam_soru":10},{"ders":"Matematik","kazanim":"VERİ, SAYMA VE OLASILIK / Veri","yuzde_list":[0.0,100.0,0.0],"yanlis_list":[1,0,1],"dogru_list":[0,1,0],"labels":["K01","K08","K16"],"net_change":0.0,"trend":"sabit","avg_pct":33.3,"volatility":100.0,"dogru_top":1,"toplam_soru":3},{"ders":"Matematik","kazanim":"Merkezî Eğilim ve Yayılım Ölçüleri","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["Y03","K16"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":1,"toplam_soru":2},{"ders":"Matematik","kazanim":"Gerçek hayat durumunu yansıtan veri gruplarını uygun grafik türleriyle temsil ederek yorumlar","yuzde_list":[100.0,50.0,100.0,100.0],"yanlis_list":[0,1,0,0],"dogru_list":[2,1,1,2],"labels":["Y03","Y05","K03","K16"],"net_change":0.0,"trend":"sabit","avg_pct":87.5,"volatility":50.0,"dogru_top":6,"toplam_soru":7},{"ders":"Mantık","kazanim":"Mantık ve doğru düşünme arasındaki ilişkiyi değerlendirir","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Mantık","kazanim":"Kavram ve Terim","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Mantık","kazanim":"Önerme Nedir?","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Matematik","kazanim":"Gerçek sayı aralıklarının gösteriminde ve aralıklarla ilgili işlemlerde küme sembol\nve işlemlerinden yararlanabilme","yuzde_list":[100.0,0.0,0.0,100.0,100.0],"yanlis_list":[0,1,1,0,0],"dogru_list":[1,0,0,1,1],"labels":["K04","K05","K09","K12","K25"],"net_change":0.0,"trend":"sabit","avg_pct":60.0,"volatility":100.0,"dogru_top":3,"toplam_soru":5},{"ders":"Matematik","kazanim":"Üçgende iç ve dış açı ölçülerinin toplamına, açılara karşılık gelen kenarlarla ilgili özelliklere ve kenar uzunlukları arasındaki ilişkilere dair farklı doğrulama veya ispatları kullanır.","yuzde_list":[100.0,100.0,0.0,100.0,100.0,100.0],"yanlis_list":[0,0,1,0,0,0],"dogru_list":[1,1,0,1,1,1],"labels":["K04","K05","K09","K12","K13","K25"],"net_change":0.0,"trend":"sabit","avg_pct":83.3,"volatility":100.0,"dogru_top":5,"toplam_soru":6},{"ders":"Matematik","kazanim":"Tales, Öklid ve Pisagor teoremlerini ispatlayabilme","yuzde_list":[100.0,100.0,100.0,0.0,100.0],"yanlis_list":[0,0,0,1,0],"dogru_list":[1,1,1,0,1],"labels":["K04","K05","K09","K11","K25"],"net_change":0.0,"trend":"sabit","avg_pct":80.0,"volatility":100.0,"dogru_top":4,"toplam_soru":5},{"ders":"Psikoloji","kazanim":"Psikoloji Bilimini Tanıyalım","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Psikoloji","kazanim":"Psikolojinin konusunu kavrar","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Psikoloji","kazanim":"Psikolojinin alt dallarını bilir","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Sosyoloji","kazanim":"Sosyoloji hakkındaki bilgilerini sorgular","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Sosyoloji","kazanim":"Toplumu oluşturan ögelerin etkileşim içinde olduğunu fark eder","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Sosyoloji","kazanim":"Sosyolojik araştırmalarda kullanılan yöntemleri tanır","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Edebiyat","kazanim":"ŞİİR","yuzde_list":[0.0,0.0],"yanlis_list":[3,3],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":6},{"ders":"Edebiyat","kazanim":"Şiirde edebiyat, sanat ve fikir akımlarının/anlayışlarının yansımalarını değerlendirir.","yuzde_list":[0.0,0.0],"yanlis_list":[4,4],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":8},{"ders":"Edebiyat","kazanim":"ÖYKÜLEYİCİ (ANLATMAYA BAĞLI) EDEBÎ METİNLER","yuzde_list":[100.0,0.0,0.0],"yanlis_list":[0,3,3],"dogru_list":[3,0,0],"labels":["K02","K10","K11"],"net_change":-100.0,"trend":"azalan","avg_pct":33.3,"volatility":100.0,"dogru_top":3,"toplam_soru":9},{"ders":"Edebiyat","kazanim":"GİRİŞ","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Edebiyat","kazanim":"Metinde geçen kelime ve kelime gruplarının anlamlarını tespit eder.","yuzde_list":[50.0,50.0,100.0,0.0],"yanlis_list":[1,1,0,1],"dogru_list":[1,1,2,0],"labels":["Y05","Y06","K16","K17"],"net_change":-50.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":4,"toplam_soru":7},{"ders":"Edebiyat","kazanim":"Paragrafta anlam ile ilgili çalışmalar yapılır.","yuzde_list":[100.0,66.7],"yanlis_list":[0,1],"dogru_list":[10,2],"labels":["Y05","Y06"],"net_change":-33.3,"trend":"azalan","avg_pct":83.3,"volatility":33.3,"dogru_top":12,"toplam_soru":13},{"ders":"Edebiyat","kazanim":"Metindeki anlatım biçimleri ve tekniklerinin işlevlerini belirler.","yuzde_list":[100.0,100.0,100.0,100.0,0.0,0.0],"yanlis_list":[0,0,0,0,1,1],"dogru_list":[1,1,1,1,0,0],"labels":["K04","K05","K09","K12","K13","K25"],"net_change":-100.0,"trend":"azalan","avg_pct":66.7,"volatility":100.0,"dogru_top":4,"toplam_soru":6},{"ders":"Edebiyat","kazanim":"Metinde ortaya konulan bilgi ve yorumları ayırt eder.","yuzde_list":[100.0,100.0,100.0,0.0,0.0,100.0,100.0,33.3],"yanlis_list":[0,0,0,1,1,0,0,2],"dogru_list":[4,3,3,0,0,3,3,1],"labels":["K04","K05","K09","K10","K11","K12","K13","K25"],"net_change":-66.7,"trend":"azalan","avg_pct":66.7,"volatility":100.0,"dogru_top":17,"toplam_soru":21},{"ders":"Edebiyat","kazanim":"Farklı türlerde metinler yazar.","yuzde_list":[83.3,83.3,100.0,0.0,0.0,83.3,83.3,66.7],"yanlis_list":[1,1,0,1,1,1,1,2],"dogru_list":[5,5,6,0,0,5,5,4],"labels":["K04","K05","K09","K10","K11","K12","K13","K25"],"net_change":-16.6,"trend":"azalan","avg_pct":62.5,"volatility":100.0,"dogru_top":30,"toplam_soru":38},{"ders":"Tarih","kazanim":"YERLEŞME VE DEVLETLEŞME SÜRECİNDE SELÇUKLU TÜRKİYESİ","yuzde_list":[71.4,0.0,0.0],"yanlis_list":[2,1,1],"dogru_list":[5,0,0],"labels":["K02","K08","K17"],"net_change":-71.4,"trend":"azalan","avg_pct":23.8,"volatility":71.4,"dogru_top":5,"toplam_soru":9},{"ders":"Tarih","kazanim":"İslam dünyasının korunması bağlamında Türkiye Selçuklu Devleti ve Eyyubi Devleti'nin Haçlılarla yaptıkları mücadelelerin sosyokültürel etkilerini analiz eder.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Tarih","kazanim":"BEYLİKTEN DEVLETE OSMANLI SİYASETİ (1302-1453)","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[2,0],"labels":["K02","K17"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":2,"toplam_soru":3},{"ders":"Tarih","kazanim":"İstanbul'un Fethi'nin sebeplerini, fetih sürecini ve fethin stratejik sonuçlarını kavrar.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Tarih","kazanim":"1453-1683 yılları arasındaki siyasi ve askerî mücadelelerin Osmanlı Devleti'nin cihan devleti hâline gelmesindeki rolüne ilişkin özgün fikirler üretebilme","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Tarih","kazanim":"DEĞİŞEN DÜNYA DENGELERİ KARŞISINDA OSMANLI SİYASETİ (1595-1774)","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Tarih","kazanim":"1700-1774 yılları arasındaki süreçte meydana gelen başlıca siyasi gelişmeleri tarih şeridi ve haritalar üzerinde gösterir.","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["K16","K17"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":1,"toplam_soru":2},{"ders":"Tarih","kazanim":"ULUSLARARASI İLİŞKİLERDE DENGE STRATEJİSİ (1774-1914)","yuzde_list":[100.0,100.0,0.0,0.0],"yanlis_list":[0,0,1,1],"dogru_list":[1,1,0,0],"labels":["K07","K08","K10","K11"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":2,"toplam_soru":4},{"ders":"Tarih","kazanim":"Osmanlı ile Rusya arasındaki rekabetin Osmanlı Devleti'nin Avrupa ve Asya siyasetindeki önemini kavrar.","yuzde_list":[100.0,0.0,0.0],"yanlis_list":[0,1,1],"dogru_list":[1,0,0],"labels":["K04","K10","K11"],"net_change":-100.0,"trend":"azalan","avg_pct":33.3,"volatility":100.0,"dogru_top":1,"toplam_soru":3},{"ders":"Tarih","kazanim":"Tanzimat Fermanı, Islahat Fermanı ve Kanun-ı Esasi'nin içeriklerini küresel ve yerel siyasi şartlar bağlamında değerlendirir.","yuzde_list":[100.0,0.0,0.0,100.0,100.0],"yanlis_list":[0,1,1,0,0],"dogru_list":[1,0,0,1,1],"labels":["K09","K10","K11","K13","K25"],"net_change":0.0,"trend":"sabit","avg_pct":60.0,"volatility":100.0,"dogru_top":3,"toplam_soru":5},{"ders":"Tarih","kazanim":"1876-1913 arasında gerçekleştirilen darbelerin Osmanlı siyasi hayatı üzerindeki etkilerini değerlendirir.","yuzde_list":[0.0,0.0,0.0,0.0,0.0],"yanlis_list":[1,1,1,1,1],"dogru_list":[0,0,0,0,0],"labels":["Y05","K08","K10","K11","K17"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":5},{"ders":"Tarih","kazanim":"Bir araştırma alanı ve bilim dalı olarak tarihin konusunu, kapsamını ve diğer bilim dallarıyla ilişkisini açıklar.","yuzde_list":[100.0,0.0,0.0,0.0],"yanlis_list":[0,1,1,1],"dogru_list":[1,0,0,0],"labels":["Y03","K10","K11","K17"],"net_change":-100.0,"trend":"azalan","avg_pct":25.0,"volatility":100.0,"dogru_top":1,"toplam_soru":4},{"ders":"Tarih","kazanim":"İLK VE ORTA ÇAĞLARDA TÜRK DÜNYASI","yuzde_list":[100.0,100.0,0.0,100.0,100.0],"yanlis_list":[0,0,1,0,0],"dogru_list":[1,1,0,1,1],"labels":["Y05","K01","K07","K08","K16"],"net_change":0.0,"trend":"sabit","avg_pct":80.0,"volatility":100.0,"dogru_top":4,"toplam_soru":5},{"ders":"Tarih","kazanim":"Asya merkezli Türk Devletlerinin çevrelerindeki devletlerle ilişkilerinin çok boyutlu yapısını analiz eder.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Tarih","kazanim":"İSLAM MEDENİYETİNİN DOĞUŞU","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K01","K17"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Tarih","kazanim":"Emeviler ile birlikte İslam Devleti'nin yapısında meydana gelen değişimi analiz eder.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Tarih","kazanim":"TÜRKLERİN İSLAMİYET'İ KABULÜ VE İLK TÜRK İSLAM DEVLETLERİ","yuzde_list":[100.0,100.0,0.0,0.0],"yanlis_list":[0,0,1,1],"dogru_list":[1,1,0,0],"labels":["K04","K07","K09","K25"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":2,"toplam_soru":4},{"ders":"Tarih","kazanim":"Türklerin İslamiyet'i kabul etme sürecine etki eden faktörleri açıklar.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"Tarih","kazanim":"Karahanlı ve Gazneli örneklerinden hareketle İslamiyet'in kabulünün Türk devlet yapısında ve toplumsal hayatta meydana getirdiği değişimleri analiz eder.","yuzde_list":[100.0,0.0,0.0],"yanlis_list":[0,1,1],"dogru_list":[1,0,0],"labels":["Y05","K05","K12"],"net_change":-100.0,"trend":"azalan","avg_pct":33.3,"volatility":100.0,"dogru_top":1,"toplam_soru":3},{"ders":"Tarih","kazanim":"Büyük Selçuklu Devleti'nin yönetim ve toplum yapısını kavrar.","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K10","K11"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"TÜRKÇE 11 SAY","kazanim":"Söz Öbekleri","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[2,0],"labels":["K03","K16"],"net_change":-100.0,"trend":"azalan","avg_pct":50.0,"volatility":100.0,"dogru_top":2,"toplam_soru":3},{"ders":"TÜRKÇE 11 SAY","kazanim":"Cümlede Anlam","yuzde_list":[100.0,100.0,100.0,50.0],"yanlis_list":[0,0,0,1],"dogru_list":[4,1,2,1],"labels":["K01","K03","K07","K16"],"net_change":-50.0,"trend":"azalan","avg_pct":87.5,"volatility":50.0,"dogru_top":8,"toplam_soru":9},{"ders":"TÜRKÇE 11 SAY","kazanim":"Anlatımına Göre Cümleler","yuzde_list":[100.0,100.0,0.0],"yanlis_list":[0,0,3],"dogru_list":[2,3,0],"labels":["Y06","K16","K17"],"net_change":-100.0,"trend":"azalan","avg_pct":66.7,"volatility":100.0,"dogru_top":5,"toplam_soru":8},{"ders":"TÜRKÇE 11 SAY","kazanim":"Paragrafta Konu","yuzde_list":[100.0,50.0],"yanlis_list":[0,2],"dogru_list":[1,2],"labels":["K01","K03"],"net_change":-50.0,"trend":"azalan","avg_pct":75.0,"volatility":50.0,"dogru_top":3,"toplam_soru":5},{"ders":"TÜRKÇE 11 SAY","kazanim":"Paragrafta Yardımcı Düşünce","yuzde_list":[88.9,68.8,72.7],"yanlis_list":[1,5,3],"dogru_list":[8,11,8],"labels":["K01","K03","K07"],"net_change":-16.2,"trend":"azalan","avg_pct":76.8,"volatility":20.1,"dogru_top":27,"toplam_soru":36},{"ders":"TÜRKÇE 11 SAY","kazanim":"Paragrafta Yapı","yuzde_list":[66.7,71.4,100.0,100.0,85.7,0.0,80.0,0.0],"yanlis_list":[2,2,0,0,1,1,1,1],"dogru_list":[4,5,5,2,6,0,4,0],"labels":["Y05","Y06","K01","K03","K07","K13","K16","K17"],"net_change":-66.7,"trend":"azalan","avg_pct":63.0,"volatility":100.0,"dogru_top":26,"toplam_soru":34},{"ders":"TÜRKÇE 12 SAY","kazanim":"Büyük Harflerin Yazımı","yuzde_list":[0.0,0.0],"yanlis_list":[1,1],"dogru_list":[0,0],"labels":["K01","K03"],"net_change":0.0,"trend":"sabit","avg_pct":0.0,"volatility":0.0,"dogru_top":0,"toplam_soru":2},{"ders":"TÜRKÇE 12 SAY","kazanim":"Noktalama İşaretleri","yuzde_list":[100.0,100.0,100.0,50.0,100.0],"yanlis_list":[0,0,0,1,0],"dogru_list":[2,2,2,1,1],"labels":["Y05","K01","K03","K07","K16"],"net_change":0.0,"trend":"sabit","avg_pct":90.0,"volatility":50.0,"dogru_top":8,"toplam_soru":9},{"ders":"YKS Türkçe","kazanim":"Yapı - Tamamlama","yuzde_list":[100.0,80.0],"yanlis_list":[0,1],"dogru_list":[4,4],"labels":["Y03","K08"],"net_change":-20.0,"trend":"azalan","avg_pct":90.0,"volatility":20.0,"dogru_top":8,"toplam_soru":9},{"ders":"YKS Türkçe","kazanim":"Konu – Ana Düşünce","yuzde_list":[100.0,88.9],"yanlis_list":[0,1],"dogru_list":[7,8],"labels":["Y03","K08"],"net_change":-11.1,"trend":"azalan","avg_pct":94.5,"volatility":11.1,"dogru_top":15,"toplam_soru":16},{"ders":"YKS Türkçe","kazanim":"Yardımcı Düşünce","yuzde_list":[90.0,91.7],"yanlis_list":[1,1],"dogru_list":[9,11],"labels":["Y03","K08"],"net_change":1.7,"trend":"sabit","avg_pct":90.8,"volatility":1.7,"dogru_top":20,"toplam_soru":22},{"ders":"YKS Türkçe","kazanim":"Yazım Kuralları","yuzde_list":[50.0,0.0],"yanlis_list":[1,2],"dogru_list":[1,0],"labels":["Y03","K08"],"net_change":-50.0,"trend":"azalan","avg_pct":25.0,"volatility":50.0,"dogru_top":1,"toplam_soru":4}],"mat_yanlis":[{"ders":"Matematik","kazanim":"Sıralama ve Seçme","yuzde_list":[0.0,100.0,100.0,100.0,0.0,0.0],"yanlis_list":[1,0,0,0,1,1],"dogru_list":[0,1,1,1,0,0],"labels":["K05","K07","K08","K10","K11","K17"],"net_change":0.0,"trend":"sabit"},{"ders":"Matematik","kazanim":"Sınırlı sayıda tekrarlayan nesnelerin dizilişlerini (permütasyonlarını) açıklayarak problemler çözer","yuzde_list":[0.0,0.0,100.0,100.0,0.0],"yanlis_list":[1,1,0,0,1],"dogru_list":[0,0,1,1,0],"labels":["K02","K01","K09","K12","K13"],"net_change":0.0,"trend":"sabit"},{"ders":"Matematik","kazanim":"n elemanlı bir kümenin r tane elemanının kaç farklı şekilde seçilebileceğini hesaplar.","yuzde_list":[100.0,100.0,100.0,0.0,100.0],"yanlis_list":[0,0,0,1,0],"dogru_list":[2,1,1,0,1],"labels":["K02","Y03","Y05","K04","K25"],"net_change":0.0,"trend":"sabit"},{"ders":"Matematik","kazanim":"Pascal üçgenini açıklar.","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["K10","K11"],"net_change":-100.0,"trend":"azalan"},{"ders":"Matematik","kazanim":"Basit Olayların Olasılıkları","yuzde_list":[100.0,100.0,100.0,100.0,0.0],"yanlis_list":[0,0,0,0,1],"dogru_list":[1,1,1,1,0],"labels":["K01","K03","K05","K07","K08"],"net_change":-100.0,"trend":"azalan"},{"ders":"Matematik","kazanim":"SAYILAR VE CEBİR / Fonksiyonlar","yuzde_list":[100.0,100.0,100.0,100.0,0.0,100.0,100.0],"yanlis_list":[0,0,0,0,1,0,0],"dogru_list":[1,1,1,1,0,1,1],"labels":["K04","K09","K10","K11","K13","K17","K25"],"net_change":0.0,"trend":"sabit"},{"ders":"Matematik","kazanim":"SAYILAR VE CEBİR / Polinomlar","yuzde_list":[100.0,0.0,100.0,100.0,0.0,0.0],"yanlis_list":[0,1,0,0,1,1],"dogru_list":[1,0,1,1,0,0],"labels":["K04","K10","K11","K13","K17","K25"],"net_change":-100.0,"trend":"azalan"},{"ders":"Matematik","kazanim":"İkinci Dereceden Bir Bilinmeyenli Denklemler","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["K04","K13"],"net_change":-100.0,"trend":"azalan"},{"ders":"Matematik","kazanim":"Dörtgenler ve Özellikleri","yuzde_list":[100.0,50.0],"yanlis_list":[0,1],"dogru_list":[1,1],"labels":["Y05","Y06"],"net_change":-50.0,"trend":"azalan"},{"ders":"Matematik","kazanim":"Katı Cisimler","yuzde_list":[100.0,100.0,50.0,100.0,100.0],"yanlis_list":[0,0,1,0,0],"dogru_list":[1,1,1,1,1],"labels":["Y03","Y05","K07","K11","K16"],"net_change":0.0,"trend":"sabit"},{"ders":"Matematik","kazanim":"Dik prizmalar ve dik piramitlerin uzunluk, alan ve hacim bağıntılarını oluşturur.","yuzde_list":[0.0,0.0,0.0],"yanlis_list":[1,2,1],"dogru_list":[0,0,0],"labels":["Y03","K08","K16"],"net_change":0.0,"trend":"sabit"},{"ders":"Matematik","kazanim":"Trigonometrik Fonksiyonlar","yuzde_list":[100.0,100.0,100.0,0.0],"yanlis_list":[0,0,0,1],"dogru_list":[1,2,1,0],"labels":["K03","K11","K13","K17"],"net_change":-100.0,"trend":"azalan"},{"ders":"Matematik","kazanim":"Katı Cisimler (Gelişmiş)","yuzde_list":[100.0,100.0,0.0,100.0,100.0,50.0,100.0],"yanlis_list":[0,0,2,0,0,1,0],"dogru_list":[2,2,0,1,2,1,2],"labels":["K04","K05","K09","K11","K12","K13","K25"],"net_change":0.0,"trend":"sabit"},{"ders":"Matematik","kazanim":"VERİ, SAYMA VE OLASILIK / Olasılık","yuzde_list":[100.0,0.0,0.0,0.0,0.0,0.0],"yanlis_list":[0,1,1,1,1,1],"dogru_list":[1,0,0,0,0,0],"labels":["K04","K09","K11","K12","K13","K25"],"net_change":-100.0,"trend":"azalan"},{"ders":"Matematik","kazanim":"Logaritma Fonksiyonu","yuzde_list":[100.0,75.0,50.0],"yanlis_list":[0,1,2],"dogru_list":[1,3,2],"labels":["Y06","K10","K11"],"net_change":-50.0,"trend":"azalan"},{"ders":"Matematik","kazanim":"Limit ve Süreklilik","yuzde_list":[100.0,0.0],"yanlis_list":[0,1],"dogru_list":[1,0],"labels":["Y06","K17"],"net_change":-100.0,"trend":"azalan"},{"ders":"Matematik","kazanim":"Gerçek hayatta periyodik olarak tekrar eden durumları içeren problemleri çözer.","yuzde_list":[100.0,75.0,66.7,33.3,100.0,100.0,0.0,100.0,55.6,0.0],"yanlis_list":[0,1,1,2,0,0,1,0,4,1],"dogru_list":[1,3,2,1,1,1,0,4,5,0],"labels":["Y03","K03","K04","K05","K09","K10","K11","K13","K16","K25"],"net_change":-100.0,"trend":"azalan"},{"ders":"Matematik","kazanim":"Bölünebilme Kuralları","yuzde_list":[100.0,0.0,0.0,0.0,100.0,0.0],"yanlis_list":[0,1,1,1,0,1],"dogru_list":[1,0,0,0,2,0],"labels":["Y03","K05","K08","K13","K16","K25"],"net_change":-100.0,"trend":"azalan"},{"ders":"Matematik","kazanim":"EBOB ve EKOK","yuzde_list":[100.0,0.0,0.0],"yanlis_list":[0,1,1],"dogru_list":[1,0,0],"labels":["K10","K11","K13"],"net_change":-100.0,"trend":"azalan"},{"ders":"Matematik","kazanim":"Denklemler ve Eşitsizlikler (problemler)","yuzde_list":[87.5,63.6,55.6,87.5,100.0,100.0,100.0,63.6,55.6,100.0,87.5,0.0,85.7],"yanlis_list":[1,4,4,1,0,0,0,4,4,0,1,1,1],"dogru_list":[7,7,5,7,4,6,2,7,5,8,7,0,6],"labels":["Y03","Y05","K01","K03","K04","K05","K07","K08","K09","K12","K13","K17","K25"],"net_change":-1.8,"trend":"sabit"}]};
+
+let filtered = [...RAW.problem_items];
+let trendFilter = 'hepsi';
+let subjectFilter = null;
+
+// Build subject pills
+const allSubjects = [...new Set(RAW.problem_items.map(d => d.ders))].sort();
+const spEl = document.getElementById('subjectPills');
+allSubjects.forEach(s => {
+  const el = document.createElement('span');
+  el.className = 'subject-pill';
+  el.textContent = s.length > 13 ? s.substring(0,13)+'…' : s;
+  el.title = s;
+  el.onclick = () => {
+    if (subjectFilter === s) { subjectFilter = null; el.classList.remove('active'); }
+    else {
+      document.querySelectorAll('.subject-pill').forEach(p => p.classList.remove('active'));
+      subjectFilter = s; el.classList.add('active');
+    }
+    applyFilters();
+  };
+  spEl.appendChild(el);
+});
+
+function setTF(t, el) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  trendFilter = t;
+  applyFilters();
+}
+
+function applyFilters() {
+  const q = document.getElementById('searchBox').value.toLowerCase();
+  filtered = RAW.problem_items.filter(d => {
+    const tOk = trendFilter === 'hepsi' || d.trend === trendFilter;
+    const sOk = !subjectFilter || d.ders === subjectFilter;
+    const qOk = !q || d.kazanim.toLowerCase().includes(q) || d.ders.toLowerCase().includes(q);
+    return tOk && sOk && qOk;
+  });
+  renderList();
+}
+
+function renderList() {
+  const list = document.getElementById('itemList');
+  document.getElementById('listCount').textContent = filtered.length + ' kazanım';
+  list.innerHTML = '';
+  filtered.forEach((item, i) => {
+    const el = document.createElement('div');
+    el.className = 'list-item';
+    const sparks = item.yuzde_list.map(v => {
+      const h = Math.max(3, Math.round(v/100*22));
+      const c = v===0?'#f04f59':v<50?'#f5a623':'#3ecf8e';
+      return `<div class="spark-bar" style="height:${h}px;background:${c}"></div>`;
+    }).join('');
+    el.innerHTML = `
+      <div class="item-ders">${item.ders}</div>
+      <div class="item-kazanim">${item.kazanim.substring(0,90)}${item.kazanim.length>90?'…':''}</div>
+      <div class="item-meta">
+        <span class="trend-badge ${item.trend}">${item.trend==='azalan'?'↘ Azalan':'→ Sabit'}</span>
+        <span class="item-change ${item.net_change<0?'neg':'zero'}">${item.net_change>=0?'+':''}${item.net_change.toFixed(0)}%</span>
+        <div class="mini-sparks">${sparks}</div>
+      </div>`;
+    el.onclick = () => openSheet(item);
+    list.appendChild(el);
+  });
+}
+
+function openSheet(item) {
+  document.getElementById('sheetDers').textContent = item.ders;
+  document.getElementById('sheetTitle').textContent = item.kazanim;
+  document.getElementById('statStart').textContent = '%' + item.yuzde_list[0].toFixed(0);
+  document.getElementById('statEnd').textContent = '%' + item.yuzde_list[item.yuzde_list.length-1].toFixed(0);
+  const nc = item.net_change;
+  document.getElementById('statChange').textContent = (nc>=0?'+':'') + nc.toFixed(1)+'%';
+  const pill = document.getElementById('statChangePill');
+  pill.className = 'stat-pill ' + (nc < -10 ? 'red' : nc < 0 ? 'orange' : 'green');
+  document.getElementById('statExams').textContent = item.labels.length;
+  
+  // Exam rows
+  const rows = document.getElementById('examRows');
+  rows.innerHTML = '';
+  item.labels.forEach((lbl,i) => {
+    const v = item.yuzde_list[i];
+    const w = item.yanlis_list[i];
+    const barColor = v===0?'#f04f59':v<50?'#f5a623':'#7c6af7';
+    const row = document.createElement('div');
+    row.className = 'exam-row';
+    row.innerHTML = `
+      <span class="exam-label">${lbl}</span>
+      <div class="exam-bar-wrap"><div class="exam-bar" style="width:${v}%;background:${barColor}"></div></div>
+      <span class="exam-pct" style="color:${barColor}">%${v.toFixed(0)}</span>
+      <span class="exam-wrong">${w>0?w+'✗':''}</span>`;
+    rows.appendChild(row);
+  });
+  
+  document.getElementById('backdrop').classList.add('visible');
+  document.getElementById('detailSheet').classList.add('visible');
+  document.body.style.overflow = 'hidden';
+  
+  // Draw chart after sheet is visible
+  setTimeout(() => {
+    const canvas = document.getElementById('mainChart');
+    drawLineChart(canvas, item.labels, item.yuzde_list, item.yanlis_list);
+  }, 50);
+}
+
+function closeSheet() {
+  document.getElementById('backdrop').classList.remove('visible');
+  document.getElementById('detailSheet').classList.remove('visible');
+  document.body.style.overflow = '';
+}
+
+// MAT TAB
+function renderMat(sortBy, btn) {
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  
+  const items = [...RAW.mat_yanlis];
+  if (sortBy === 'severity') {
+    items.sort((a,b) => {
+      const af = a.yanlis_list[a.yanlis_list.length-1]-a.yanlis_list[0];
+      const bf = b.yanlis_list[b.yanlis_list.length-1]-b.yanlis_list[0];
+      return (bf*2+Math.max(...b.yanlis_list)) - (af*2+Math.max(...a.yanlis_list));
+    });
+  } else if (sortBy === 'alpha') {
+    items.sort((a,b) => a.kazanim.localeCompare(b.kazanim,'tr'));
+  } else {
+    items.sort((a,b) => b.yanlis_list.length - a.yanlis_list.length);
+  }
+  
+  document.getElementById('matCount').textContent = items.length + ' konu · önceliğe göre sıralandı';
+  const list = document.getElementById('matList');
+  list.innerHTML = '';
+  
+  items.forEach((item, idx) => {
+    const fark = item.yanlis_list[item.yanlis_list.length-1] - item.yanlis_list[0];
+    const maxY = Math.max(...item.yanlis_list);
+    const isKotu = fark > 0;
+    let sevTag, sevClass, cardClass;
+    if (isKotu) { sevTag = '🔴 Kötüleşiyor'; sevClass = 'kotu'; cardClass = 'critical'; }
+    else if (fark===0 && maxY>0) { sevTag = '🟡 Değişmiyor'; sevClass = 'degismiyor'; cardClass = 'warning'; }
+    else { sevTag = '✅ Tek Yanlış'; sevClass = 'ok'; cardClass = ''; }
+    
+    const card = document.createElement('div');
+    card.className = 'mat-card ' + cardClass;
+    card.innerHTML = `
+      <div class="mat-card-title">${item.kazanim.substring(0,85)}${item.kazanim.length>85?'…':''}</div>
+      <div class="mat-chart-wrap"><canvas id="mc${idx}"></canvas></div>
+      <div class="mat-footer">
+        <span class="yanlis-trend">${item.yanlis_list.join(' → ')} yanlış</span>
+        <span class="severity-tag ${sevClass}">${sevTag}</span>
+      </div>`;
+    list.appendChild(card);
+    
+    setTimeout(() => {
+      const c = document.getElementById('mc'+idx);
+      if (c) drawBarChart(c, item.labels, item.yanlis_list);
+    }, idx * 20);
+  });
+}
+
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('page-genel').classList.toggle('visible', tab==='genel');
+  document.getElementById('page-mat').classList.toggle('visible', tab==='mat');
+  if (tab==='mat' && !document.getElementById('matList').children.length) renderMat('severity');
+}
+
+// Init
+applyFilters();
+</script>
+</body>
+</html>
